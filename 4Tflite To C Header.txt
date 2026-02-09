@@ -1,0 +1,5 @@
+Git Bash
+
+com@DESKTOP-1V9R5CT MINGW64 cd /e/ProjectPython/models
+
+$ xxd -i soil_plant_mlp_isan_npk_separated.tflite > soil_plant_mlp_isan_npk_model_data.h

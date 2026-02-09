@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Soil & Plant Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Sarabun', sans-serif; background-color: #111827; color: #e5e7eb; }
+    .card { 
+      background-color: #1f2937; 
+      border: 1px solid #374151; 
+      border-radius: 0.75rem; 
+      padding: 1.5rem; 
+      transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    .card.visible { opacity: 1; transform: translateY(0); }
+    .loader { border: 4px solid #374151; border-top: 4px solid #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    /* สไตล์สำหรับ Dropdown */
+    select {
+      background-color: #374151;
+      border-color: #4b5563;
+      color: #e5e7eb;
+      padding-right: 2.5rem; 
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 0.5rem center;
+      background-repeat: no-repeat;
+      background-size: 1.5em 1.5em;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+    }
+  </style>
+</head>
+<body class="antialiased">
+
+  <div id="loading-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
+    <div class="loader"></div>
+  </div>
+
+  <div id="dashboard-content" class="container mx-auto p-4 md:p-8 max-w-7xl hidden">
+    
+    <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+      <div>
+        <h1 class="text-3xl md:text-4xl font-bold text-white">Soil Dashboard</h1>
+        <p class="text-gray-400">ภาพรวมข้อมูลดินและพืชที่เหมาะสม</p>
+      </div>
+      
+      <div class="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4 w-full md:w-auto">
+        <select id="project-selector" onchange="fetchData()" 
+                class="w-full md:w-auto px-4 py-2 rounded-lg border-2 border-transparent focus:outline-none focus:border-blue-500 transition cursor-pointer">
+          <option value="">กำลังโหลดรายชื่อแปลง...</option>
+        </select>
+        
+        <div class="flex items-center space-x-4">
+          <div class="text-right">
+            <p class="text-sm text-gray-500">อัปเดตล่าสุด</p>
+            <p id="last-updated" class="font-medium text-gray-300">-</p>
+          </div>
+          <button onclick="fetchData()" class="p-2 bg-blue-600 hover:bg-blue-700 rounded-full text-white transition" title="รีเฟรชข้อมูล">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <section class="lg:col-span-1 space-y-6">
+        
+        <div id="card-insights" class="card">
+          <h2 class="text-xl font-bold text-white mb-4">ข้อมูลเชิงลึก (Trends)</h2>
+          <div id="insights-content" class="space-y-3">
+             <p class="text-gray-500">กำลังวิเคราะห์แนวโน้ม...</p>
+          </div>
+        </div>
+        
+        <div id="card-summary" class="card" style="transition-delay: 100ms;">
+          <h2 class="text-xl font-bold text-white mb-4">สรุปภาพรวม</h2>
+          <h3 id="project-name-display" class="text-lg font-semibold text-blue-300 mb-2">- กำลังโหลดชื่อแปลง -</h3>
+          <div id="summary-content" class="text-center p-4 rounded-lg">
+            <p class="text-2xl font-bold text-gray-300" id="summary-status">...</p>
+            <p class="text-gray-400" id="summary-detail">กำลังประมวลผลข้อมูล</p>
+          </div>
+        </div>
+        
+        <div id="card-plants" class="card" style="transition-delay: 200ms;">
+          <h2 class="text-xl font-bold text-white mb-4">พืชแนะนำ (ที่แก้ไขแล้ว)</h2>
+          <div id="recommended-plants" class="space-y-4"><p class="text-gray-500">กำลังโหลด...</p></div>
+        </div>
+        
+        <div id="card-weather" class="card" style="transition-delay: 300ms;">
+          <h2 class="text-xl font-bold text-white mb-4">พยากรณ์อากาศ</h2>
+          <p class="text-gray-500"> (ยังไม่เปิดใช้งาน) </p>
+        </div>
+        
+        </section>
+      <section class="lg:col-span-2 space-y-6">
+        <div id="card-metrics" class="card" style="transition-delay: 400ms;">
+          <h2 class="text-xl font-bold text-white mb-4">ข้อมูลดินล่าสุด</h2>
+          <div id="soil-metrics" class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+             <p class="text-gray-500 col-span-full">กำลังโหลด...</p>
+          </div>
+        </div>
+        <div id="card-chart" class="card" style="transition-delay: 500ms;">
+          <h2 class="text-xl font-bold text-white mb-4">กราฟแนวโน้ม (N-P-K)</h2>
+          <div id="chart_div" class="w-full h-64 md:h-80 flex items-center justify-center">
+            <p class="text-gray-500">กำลังโหลด...</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    
+    // === 1. [อัปเกรด] INITIAL LOAD (เรียก Project List ก่อน) ===
+    document.addEventListener('DOMContentLoaded', () => {
+      google.charts.load('current', { 'packages': ['corechart'] });
+      // 1. โหลดรายชื่อแปลงก่อน
+      google.script.run
+        .withSuccessHandler(populateProjectList)
+        .withFailureHandler(showError)
+        .getProjectList(); 
+    });
+
+    /**
+     * [ใหม่] เมื่อได้รายชื่อแปลง ให้สร้าง Dropdown
+     */
+    function populateProjectList(projects) {
+      const selector = document.getElementById('project-selector');
+      if (!projects || projects.length === 0) {
+        selector.innerHTML = '<option value="">ไม่พบข้อมูลแปลง</option>';
+        showError({ message: "ไม่พบข้อมูลแปลงใน Google Sheet" });
+        return;
+      }
+      
+      selector.innerHTML = ''; 
+      projects.forEach(project => {
+        const option = document.createElement('option');
+        option.value = project;
+        option.textContent = project;
+        selector.appendChild(option);
+      });
+      
+      // 2. เมื่อสร้าง Dropdown เสร็จ ให้โหลดข้อมูล
+      google.charts.setOnLoadCallback(fetchData);
+    }
+    
+    /**
+     * [อัปเกรด] อ่านค่าจาก Dropdown แล้วไปดึงข้อมูล
+     */
+    function fetchData() {
+      showLoader(true);
+      const projectId = document.getElementById('project-selector').value;
+      if (!projectId) {
+        showError({ message: "กรุณาเลือกแปลง" });
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(updateDashboard)
+        .withFailureHandler(showError)
+        .getDashboardData(projectId); // <-- ส่ง projectId ไปด้วย
+    }
+
+    // === 2. UI HANDLERS (เหมือนเดิม) ===
+    function showLoader(isLoading) {
+      const overlay = document.getElementById('loading-overlay');
+      const content = document.getElementById('dashboard-content');
+      const cards = document.querySelectorAll('.card');
+      if (isLoading) {
+        overlay.style.display = 'flex';
+        content.classList.add('hidden');
+        cards.forEach(card => card.classList.remove('visible'));
+      } else {
+        overlay.style.display = 'none';
+        content.classList.remove('hidden');
+        setTimeout(() => cards.forEach(card => card.classList.add('visible')), 100);
+      }
+    }
+
+    function showError(error) {
+      const content = document.getElementById('dashboard-content');
+      content.innerHTML = `<div class="card visible text-center text-red-400 col-span-full"><h2 class="text-2xl font-bold">เกิดข้อผิดพลาด</h2><p>${error.message}</p></div>`;
+      showLoader(false);
+    }
+
+    /**
+     * [อัปเกรด] อัปเดตข้อมูลลง Dashboard
+     */
+    function updateDashboard(data) {
+      if (!data || !data.latestReading) {
+        showError({ message: "ไม่พบข้อมูลล่าสุดสำหรับแปลงนี้" });
+        return;
+      }
+      const { latestReading, history, insights } = data;
+
+      try {
+        // แสดงชื่อแปลงที่เลือก
+        document.getElementById('project-name-display').textContent = latestReading.projectId || 'ไม่ระบุชื่อแปลง';
+        
+        document.getElementById('last-updated').textContent = new Date(latestReading.timestamp).toLocaleString('th-TH');
+        
+        displaySoilMetrics(latestReading);
+        displayRecommendedPlants(latestReading.plants); // <-- นี่คือข้อมูลพืชที่ "แก้ไข" แล้วจาก Level 4
+        updateSummaryCard(latestReading); 
+        drawChart(history);
+        displayInsights(insights);
+        
+        // *** [แก้ไข] ลบบล็อก locationLink ที่มีปัญหา ออกแล้ว ***
+        
+        showLoader(false);
+        
+      } catch (clientError) {
+        showError({ message: "เกิดข้อผิดพลาดในการแสดงผล: " + clientError.message });
+      }
+    }
+
+    // ===================================
+    // DATA DISPLAY FUNCTIONS
+    // (ส่วนนี้ถูกต้องทั้งหมด ไม่ต้องแก้)
+    // ===================================
+    
+    function displayInsights(insights) {
+      const container = document.getElementById('insights-content');
+      if (!insights || insights.length === 0) {
+        container.innerHTML = '<p class="text-gray-500">ไม่พบข้อมูลเชิงลึก</p>';
+        return;
+      }
+      let html = '';
+      insights.forEach(insight => {
+        let icon = 'ℹ️'; let colorClass = 'border-gray-500 text-gray-300';
+        switch (insight.type) {
+          case 'success': icon = '✅'; colorClass = 'border-green-500 text-green-300'; break;
+          case 'info': icon = '📈'; colorClass = 'border-blue-500 text-blue-300'; break;
+          case 'warning': icon = '⚠️'; colorClass = 'border-yellow-500 text-yellow-300'; break;
+          case 'danger': icon = '🚨'; colorClass = 'border-red-500 text-red-300'; break;
+        }
+        html += `
+          <div class="flex items-start p-3 rounded-lg border-l-4 ${colorClass} bg-gray-800">
+            <span class="text-xl mr-3">${icon}</span>
+            <p class="text-sm">${insight.text}</p>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    function getMetricStatus(label, value) {
+        let status = { color: 'bg-gray-500', text: 'N/A' };
+        const val = parseFloat(value);
+        if (isNaN(val)) return status;
+        switch(label) {
+            case 'ความชื้น':
+                if (val >= 40 && val <= 75) status = { color: 'bg-green-500', text: 'ดี' };
+                else if (val < 25 || val > 90) status = { color: 'bg-red-500', text: 'ต้องปรับปรุง' };
+                else status = { color: 'bg-yellow-500', text: 'พอใช้' };
+                break;
+            case 'pH':
+                if (val >= 6.0 && val <= 7.0) status = { color: 'bg-green-500', text: 'ดี (เป็นกลาง)' };
+                else if (val < 5.5 || val > 7.5) status = { color: 'bg-red-500', text: 'ต้องปรับปรุง' };
+                else status = { color: 'bg-yellow-500', text: 'พอใช้ (กรด/ด่างเล็กน้อย)' };
+                break;
+            case 'N': case 'P': case 'K':
+                if (val >= 50 && val <= 350) status = { color: 'bg-green-500', text: 'เหมาะสม' };
+                else if (val < 50) status = { color: 'bg-yellow-500', text: 'ต่ำ' };
+                else status = { color: 'bg-red-500', text: 'สูงเกินไป' };
+                break;
+            case 'อุณหภูมิ':
+                if (val >= 20 && val <= 35) status = { color: 'bg-green-500', text: 'ดี' };
+                else if (val < 15 || val > 40) status = { color: 'bg-red-500', text: 'ต้องปรับปรุง' };
+                else status = { color: 'bg-yellow-500', text: 'พอใช้' };
+                break;
+            case 'EC':
+                if (val >= 200 && val <= 1000) status = { color: 'bg-green-500', text: 'ดี (แร่ธาตุพอดี)' };
+                else if (val < 200) status = { color: 'bg-yellow-500', text: 'ต่ำ (จืด)' };
+                else status = { color: 'bg-red-500', text: 'สูงเกินไป (เค็ม/ปุ๋ยเกิน)' };
+                break;
+            default: return null;
+        }
+        return status;
+    }
+
+    function updateSummaryCard(data) {
+        const metrics = [
+            { label: "ความชื้น", value: data.moisture }, { label: "pH", value: data.pH },
+            { label: "N", value: data.N }, { label: "P", value: data.P }, { label: "K", value: data.K },
+            { label: "EC", value: data.ec }
+        ];
+        let hasError = false, hasWarning = false;
+        for (const metric of metrics) {
+            const status = getMetricStatus(metric.label, metric.value);
+            if (status && status.color === 'bg-red-500') { hasError = true; break; }
+            if (status && status.color === 'bg-yellow-500') { hasWarning = true; }
+        }
+        const statusEl = document.getElementById('summary-status');
+        const detailEl = document.getElementById('summary-detail');
+        if (hasError) {
+            statusEl.textContent = '🔴 ต้องตรวจสอบ'; statusEl.className = 'text-2xl font-bold text-red-400';
+            detailEl.textContent = 'มีค่าดินอย่างน้อย 1 ค่าอยู่ในเกณฑ์อันตราย';
+        } else if (hasWarning) {
+            statusEl.textContent = '🟡 พอใช้'; statusEl.className = 'text-2xl font-bold text-yellow-400';
+            detailEl.textContent = 'ค่าดินโดยรวมปานกลาง ควรตรวจสอบเพิ่มเติม';
+        } else {
+            statusEl.textContent = '🟢 สภาพดี'; statusEl.className = 'text-2xl font-bold text-green-400';
+            detailEl.textContent = 'ค่าดินทั้งหมดอยู่ในเกณฑ์เหมาะสม';
+        }
+    }
+
+    function displayRecommendedPlants(plantsData) {
+        const container = document.getElementById('recommended-plants');
+        const plants = plantsData; 
+        if (!plants || !Array.isArray(plants) || plants.length === 0) {
+            container.innerHTML = '<p class="text-gray-500">ไม่มีข้อมูลพืชแนะนำ</p>';
+            return;
+        }
+        
+        // [อัปเกรด] เรียงลำดับใหม่ เผื่อ Code.gs แก้ไขคะแนนมา
+        const sortedPlants = plants
+            .filter(p => p.suitability > 0)
+            .sort((a, b) => b.suitability - a.suitability); 
+
+        let html = '';
+        if (sortedPlants.length === 0) {
+            html = '<p class="text-gray-500">ดินนี้ยังไม่เหมาะกับพืชที่ระบบรู้จัก</p>';
+            container.innerHTML = html; return;
+        }
+        sortedPlants.slice(0, 3).forEach((plant, index) => {
+            const plantName = plant.plant || "ไม่ระบุชื่อ";
+            const suitability = parseFloat(plant.suitability).toFixed(1);
+            const icon = getPlantIcon(plantName);
+            const description = getPlantDescription(plantName);
+            let colorClass = (index === 0) ? 'border-green-500' : (index === 1) ? 'border-blue-500' : 'border-gray-600';
+            html += `
+                <div class="flex items-center p-3 rounded-lg border-l-4 ${colorClass} bg-gray-800 hover:bg-gray-700" title="${description}">
+                    <span class="text-3xl mr-4">${icon}</span>
+                    <div class="flex-1">
+                        <div class="text-lg font-bold text-white">${plantName}</div>
+                        <div class="text-sm text-gray-400">ความเหมาะสม: <span class="font-medium text-white">${suitability}%</span></div>
+                    </div>
+                    <div class="text-xl font-bold text-gray-500">#${index + 1}</div>
+                </div>`;
+        });
+        container.innerHTML = html;
+    }
+
+    function displaySoilMetrics(data) {
+        const container = document.getElementById('soil-metrics');
+        const metrics = [
+            { label: "ความชื้น", value: data.moisture, unit: "%", icon: '💧' }, { label: "pH", value: data.pH, unit: "", icon: '🧪' },
+            { label: "N", value: data.N, unit: "mg/kg", icon: '🌿' }, { label: "P", value: data.P, unit: "mg/kg", icon: '🌸' },
+            { label: "K", value: data.K, unit: "mg/kg", icon: '💪' }, { label: "อุณหภูมิ", value: data.temp, unit: "°C", icon: '🌡️' },
+            { label: "EC", value: data.ec, unit: "µs/cm", icon: '⚡' }
+        ];
+        let html = '';
+        metrics.forEach(metric => {
+            const status = getMetricStatus(metric.label, metric.value);
+            const description = getMetricDescription(metric.label);
+            html += `<div class="p-2 flex flex-col items-center rounded-lg hover:bg-gray-700 transition cursor-pointer" title="${description}">
+                        <div class="text-3xl mb-1">${metric.icon}</div>
+                        <div class="text-sm text-gray-400 flex items-center">
+                          ${metric.label}
+                          ${status ? `<span class="ml-2 w-3 h-3 ${status.color} rounded-full" title="${status.text}"></span>` : ''}
+                        </div>
+                        <div class="text-xl font-bold text-white">${(metric.value != null ? parseFloat(metric.value) : 0).toFixed(1)} <span class="text-base font-normal text-gray-400">${metric.unit}</span></div>
+                     </div>`;
+        });
+        container.innerHTML = html;
+    }
+
+    function drawChart(history) {
+        const chartDiv = document.getElementById('chart_div');
+        if (!history || history.length < 2) {
+          chartDiv.innerHTML = '<p class="text-gray-500">ข้อมูลไม่เพียงพอสำหรับสร้างกราฟ</p>'; return;
+        }
+        const chartData = [['Time', 'N', 'P', 'K']];
+        history.slice().reverse().forEach(row => {
+          chartData.push([ 
+            new Date(row.timestamp).toLocaleTimeString('th-TH', { hour: '2-digit', minute:'2-digit' }), 
+            parseFloat(row.N) || 0, parseFloat(row.P) || 0, parseFloat(row.K) || 0 
+          ]);
+        });
+        const dataTable = google.visualization.arrayToDataTable(chartData);
+        const options = { 
+            backgroundColor: 'transparent', 
+            chartArea: { backgroundColor: 'transparent', width: '85%', height: '70%' }, 
+            colors: ['#f59e0b', '#ef4444', '#8b5cf6'], 
+            legend: { position: 'bottom', textStyle: { color: '#d1d5db' } }, 
+            hAxis: { textStyle: { color: '#9ca3af' }, slantedText: true, slantedTextAngle: 30 }, 
+            vAxis: { textStyle: { color: '#9ca3af' }, gridlines: { color: '#374151' }, baselineColor: '#374151' }, 
+            curveType: 'function', pointSize: 5,
+            tooltip: { textStyle: { color: '#111827' }, showColorCode: true }
+        };
+        const chart = new google.visualization.LineChart(chartDiv);
+        chart.draw(dataTable, options);
+    }
+
+    // ===================================
+    // HELPER FUNCTIONS (คงเดิม)
+    // ===================================
+    function getPlantIcon(plantName) {
+        const icons = {"ข้าว": "🌾", "ข้าวโพด": "🌽", "มันสำปะหลัง": "🍠", "อ้อย": "🎋", "ถั่วเขียว": "🫛", "ขิง": "G", "ขมิ้น": "🌿", "มะม่วง": "🥭", "กล้วย": "🍌", "ยางพารา": "🌳", "ปาล์มน้ำมัน": "🌴", "สับปะรด": "🍍", "ชา": "🍵", "กาแฟ": "☕", "ข้าวเหนียวดำ": "🌾", "กล้วยน้ำว้า": "🍌", "สะตอ": "🌳", "พริก": "🌶️"};
+        return icons[plantName] || "🌱";
+    }
+
+    function getMetricDescription(label) {
+        const descriptions = {
+            "ความชื้น": "เปอร์เซ็นต์ความชื้นในดิน ค่าที่เหมาะสมสำหรับพืชส่วนใหญ่คือ 40-70%",
+            "pH": "ค่าความเป็นกรด-ด่างของดิน (6.0-7.0 คือเป็นกลาง เหมาะสมที่สุด)",
+            "N": "ไนโตรเจน (mg/kg) - ช่วยบำรุงใบและลำต้น",
+            "P": "ฟอสฟอรัส (mg/kg) - ช่วยบำรุงรากและการออกดอก",
+            "K": "โพแทสเซียม (mg/kg) - ช่วยบำรุงผลผลิตและเพิ่มความต้านทานโรค",
+            "อุณหภูมิ": "อุณหภูมิดิน ส่งผลต่อการดูดซึมอาหารของราก",
+            "EC": "ค่าการนำไฟฟ้า (µs/cm) - บอกปริมาณแร่ธาตุ/ปุ๋ยที่ละลายในดิน (ค่าสูงไป = เค็ม/ปุ๋ยเกิน)"
+        };
+        return descriptions[label] || "ข้อมูลค่าดิน";
+    }
+    
+ function getPlantDescription(plantName) {
+    const descriptions = {
+        "ข้าว": "พืชหลักของไทย ชอบดินร่วนเหนียว มีน้ำสม่ำเสมอ และแดดจัด เหมาะกับพื้นที่ลุ่มน้ำหรือมีระบบชลประทานดี",
+        "ข้าวโพด": "ต้องการไนโตรเจนสูงในช่วงแรก ดินควรระบายน้ำดี ไม่ชอบน้ำขัง แดดเต็มวัน เหมาะปลูกในดินร่วนปนทราย",
+        "มันสำปะหลัง": "ทนแล้งดี ปลูกได้ในดินแทบทุกชนิดโดยเฉพาะดินทราย ไม่ทนน้ำขัง เหมาะกับพื้นที่อีสาน",
+        "อ้อย": "ต้องการน้ำพอประมาณ แดดจัด ดินร่วนปนทรายหรือดินร่วนเหนียวที่ระบายน้ำได้ดี ใช้ธาตุอาหารสูงโดยเฉพาะไนโตรเจนและโพแทสเซียม",
+        "ถั่วเขียว": "ปลูกได้ในดินเกือบทุกชนิดที่ระบายน้ำดี ช่วยเพิ่มไนโตรเจนให้ดิน เหมาะกับปลูกหลังฤดูข้าว",
+        "ขิง": "ชอบดินร่วนระบายน้ำดี ไม่ชอบน้ำขัง ต้องการความชื้นพอเหมาะและแสงรำไร ปลูกได้ดีในฤดูฝน",
+        "ขมิ้น": "ดินร่วนระบายน้ำดี มีอินทรียวัตถุสูง ความชื้นสม่ำเสมอ แสงแดดรำไร เหมาะกับการปลูกในฤดูฝนถึงต้นหนาว",
+        "มะม่วง": "ไม้ผลที่ทนแล้งดี ดินต้องระบายน้ำดี ไม่ทนน้ำขัง ต้องการแดดจัด และปุ๋ยเสริมช่วงออกดอกติดผล",
+        "กล้วย": "ต้องการน้ำมากและความชื้นสูง ดินร่วนหรือดินร่วนเหนียวที่ระบายน้ำดี แสงแดดจัด เหมาะปลูกใกล้แหล่งน้ำ",
+        "ยางพารา": "ไม้ยืนต้นที่ชอบดินร่วนลึก ระบายน้ำดี ความชื้นสูง ไม่ทนลมแรง ต้องการฝนกระจายตลอดปี",
+        "ปาล์มน้ำมัน": "ต้องการแดดเต็มวันและน้ำมาก ดินลึก ระบายน้ำดี เหมาะกับเขตร้อนชื้นและฝนตกสม่ำเสมอ",
+        "สับปะรด": "ทนแล้งได้ดีมาก ชอบดินร่วนปนทรายที่ระบายน้ำดี ไม่ทนน้ำขัง เหมาะกับพื้นที่อีสานตอนกลางถึงใต้",
+        "ชา": "ต้องการอากาศเย็นและความชื้นสูง ดินร่วนหรือร่วนเหนียว pH ค่อนข้างกรด เหมาะปลูกบนพื้นที่สูง",
+        "กาแฟ": "ต้องการร่มเงาเล็กน้อย ดินร่วนระบายน้ำดี ความชื้นสม่ำเสมอ เหมาะกับอุณหภูมิ 20–25°C",
+        "ข้าวเหนียวดำ": "คล้ายข้าวทั่วไปแต่ต้องการน้ำมากกว่าเล็กน้อย ชอบดินเหนียวและน้ำขังเล็กน้อย เหมาะกับภาคอีสาน",
+        "กล้วยน้ำว้า": "ชอบน้ำมาก ดินร่วนอุดมสมบูรณ์และระบายน้ำดี แดดจัด ต้องการโพแทสเซียมสูงเพื่อผลใหญ่และหวาน",
+        "สะตอ": "ไม้ยืนต้นภาคใต้ ชอบดินร่วนชื้นและระบายน้ำดี มีแสงแดดเต็มวัน โตเร็วในพื้นที่มีฝนตกมาก",
+        "มะละกอ": "ปลูกง่าย โตไว ต้องการดินร่วนซุยและระบายน้ำดี แดดเต็มวัน ไม่ทนน้ำขัง เหมาะปลูกเชิงพาณิชย์",
+        "มะม่วงหิมพานต์": "ทนแล้งและทนดินเค็มได้ดี ดินร่วนปนทราย ระบายน้ำดี เหมาะปลูกในเขตแห้งแล้งของอีสาน",
+        "แตงโม": "ต้องการแดดจัด ดินร่วนปนทรายที่ระบายน้ำดี ความชื้นปานกลาง ใส่ปุ๋ยโพแทสเซียมสูงเพื่อผลหวาน",
+        "พริก": "ชอบดินร่วนซุย ระบายน้ำดี ต้องการแดดเต็มวันและน้ำสม่ำเสมอ ไม่ชอบน้ำขัง เหมาะกับการปลูกในฤดูหนาวถึงต้นร้อน",
+        "ยาสูบ": "ต้องการดินร่วนปนทรายที่ระบายน้ำดี แดดจัด ควบคุมน้ำเพื่อคุณภาพใบ เหมาะปลูกในฤดูหนาว"
+    };
+    return descriptions[plantName] || "ข้อมูลทั่วไปของพืช";
+}
+
+
+  </script>
+</body>
+</html>

@@ -16,7 +16,7 @@ Farmers in Phang Khon lack soil tools, causing high costs. This study built a po
 ---
 ⚠️ **หมายเหตุ:** เทคนิคและกระบวนการทำงานในโค้ดชุดนี้ อยู่ในระหว่างการพิจารณาอนุสิทธิบัตร การนำไปใช้เชิงพาณิชย์โดยไม่ได้รับอนุญาตอาจมีความผิดตามกฎหมาย
 
-# [Your Project Name]
+# [A portable soil quality monitoring and crop recommendation device powered by artificial intelligence.]
 > **Status:** 🛡️ **Patent Pending**
 > **Application No.:** [2503004928] (Thai Petty Patent)
 
